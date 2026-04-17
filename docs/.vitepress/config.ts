@@ -21,6 +21,14 @@ export default defineConfig({
       gtag('js', new Date());
       gtag('config', 'G-RQSZM9PP5F');`,
     ],
+    [
+      'script',
+      {
+        async: '',
+        src: 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7236608137732943',
+        crossorigin: 'anonymous',
+      },
+    ],
   ],
   lastUpdated: true,
   themeConfig: {
@@ -65,7 +73,7 @@ export default defineConfig({
 
     socialLinks: [
       { icon: 'github', link: 'https://github.com/HoshinoSuzumi/chronoframe' },
-      { icon: 'discord', link: 'https://discord.gg/mDZjCwdQGk' },
+      { icon: 'discord', link: 'https://discord.gg/MM4ZK4Ed7s' },
     ],
 
     editLink: {
