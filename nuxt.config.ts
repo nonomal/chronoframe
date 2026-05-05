@@ -1,19 +1,16 @@
 import pkg from './package.json'
-import tailwindcss from '@tailwindcss/vite'
 import type { AnalyticsConfig } from './shared/types/config'
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
-  devtools: { enabled: false },
+  devtools: { enabled: true },
 
   modules: [
     'reka-ui/nuxt',
     '@nuxt/ui',
-    '@nuxt/eslint',
     '@nuxt/fonts',
     '@nuxt/icon',
-    '@nuxt/image',
     '@nuxt/test-utils',
     '@pinia/nuxt',
     'motion-v/nuxt',
@@ -46,12 +43,12 @@ export default defineNuxtConfig({
       map: {
         provider: 'maplibre' as 'mapbox' | 'maplibre',
         mapbox: {
-          style: ''
+          style: '',
         },
         maplibre: {
           token: '',
           style: '',
-        }
+        },
       },
       analytics: {
         matomo: {
@@ -103,18 +100,18 @@ export default defineNuxtConfig({
         pathField: 'path',
         cdnUrl: '',
       } as {
-        baseUrl: string;
-        rootPath: string;
-        token: string;
+        baseUrl: string
+        rootPath: string
+        token: string
         endpoints: {
-          upload: string;
-          download: string;
-          list: string;
-          delete: string;
-          meta: string;
-        };
-        pathField: string;
-        cdnUrl: string;
+          upload: string
+          download: string
+          list: string
+          delete: string
+          meta: string
+        }
+        pathField: string
+        cdnUrl: string
       },
     },
     upload: {
@@ -141,7 +138,6 @@ export default defineNuxtConfig({
   },
 
   vite: {
-    plugins: [tailwindcss() as any],
     optimizeDeps: {
       include: [
         'zod',
@@ -176,15 +172,57 @@ export default defineNuxtConfig({
       noExternal: ['@indoorequal/vue-maplibre-gl'],
     },
     css: {
-      devSourcemap: true,
+      devSourcemap: false,
     },
     build: {
       sourcemap: false,
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (!id.includes('node_modules')) {
+              return
+            }
+
+            if (
+              id.includes('/mapbox-gl/') ||
+              id.includes('/maplibre-gl/') ||
+              id.includes('/@indoorequal/vue-maplibre-gl/') ||
+              id.includes('/nuxt-mapbox/') ||
+              id.includes('/nuxt-maplibre/')
+            ) {
+              return 'vendor-map'
+            }
+          },
+        },
+      },
       commonjsOptions: {
         include: [/maplibre-gl/, /node_modules/],
         transformMixedEsModules: true,
       },
     },
+    plugins: [
+      {
+        apply: 'build',
+        name: 'vite-plugin-ignore-sourcemap-warnings',
+        configResolved(config) {
+          const originalOnWarn = config.build.rollupOptions.onwarn
+          config.build.rollupOptions.onwarn = (warning, warn) => {
+            if (
+              warning.code === 'SOURCEMAP_BROKEN' &&
+              warning.plugin === '@tailwindcss/vite:generate:build'
+            ) {
+              return
+            }
+
+            if (originalOnWarn) {
+              originalOnWarn(warning, warn)
+            } else {
+              warn(warning)
+            }
+          }
+        },
+      },
+    ],
   },
 
   gtag: {

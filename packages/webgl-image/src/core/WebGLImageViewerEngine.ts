@@ -35,17 +35,15 @@ interface Tile {
 
 const TILE_DEBUG_BORDER_PX = 2.4
 const TILE_DEBUG_BORDER_COLOR: [number, number, number, number] = [
-  0.4,
-  0.7,
-  0.9,
-  0.25,
+  0.4, 0.7, 0.9, 0.25,
 ]
 
 export class WebGLImageViewerEngine {
   private canvas: HTMLCanvasElement
   private gl: WebGLRenderingContext
   private config: EngineConfig
-  private image: HTMLImageElement | HTMLCanvasElement | ImageBitmap | null = null
+  private image: HTMLImageElement | HTMLCanvasElement | ImageBitmap | null =
+    null
   private texture: WebGLTexture | null = null
   private program: WebGLProgram | null = null
   private tiles: Tile[] = []
@@ -88,11 +86,21 @@ export class WebGLImageViewerEngine {
   // 事件监听器
   private throttledRender: () => void
   private resizeObserver: ResizeObserver | null = null
+  private resizeAnimationFrameId: number | null = null
 
   // 绑定的事件处理器（用于正确添加/移除全局事件监听器）
+  private boundHandleMouseDown: (event: MouseEvent) => void
   private boundHandleMouseUp: () => void
   private boundHandleMouseMove: (event: MouseEvent) => void
   private boundHandleMouseLeave: () => void
+  private boundHandleWheel: (event: WheelEvent) => void
+  private boundHandleClick: (event: MouseEvent) => void
+  private boundHandleTouchStart: (event: TouchEvent) => void
+  private boundHandleTouchMove: (event: TouchEvent) => void
+  private boundHandleTouchEnd: (event: TouchEvent) => void
+  private boundHandleContextLost: (event: Event) => void
+  private boundHandleContextRestored: () => void
+  private boundHandleContextMenu: (event: MouseEvent) => void
 
   // 回调函数
   private onZoomChange?: (originalScale: number, relativeScale: number) => void
@@ -108,6 +116,7 @@ export class WebGLImageViewerEngine {
   private currentQuality: 'high' | 'medium' | 'low' | 'unknown' = 'unknown'
   private isLoadingTexture = false
   private currentLoadingState: LoadingState = LoadingState.IDLE
+  private lastRequestedSrc: string | null = null
 
   constructor(canvas: HTMLCanvasElement, config: Partial<EngineConfig> = {}) {
     this.canvas = canvas
@@ -133,9 +142,18 @@ export class WebGLImageViewerEngine {
     )
 
     // 绑定事件处理器
+    this.boundHandleMouseDown = this.handleMouseDown.bind(this)
     this.boundHandleMouseUp = this.handleMouseUp.bind(this)
     this.boundHandleMouseMove = this.handleMouseMove.bind(this)
     this.boundHandleMouseLeave = this.handleMouseLeave.bind(this)
+    this.boundHandleWheel = this.handleWheel.bind(this)
+    this.boundHandleClick = this.handleClick.bind(this)
+    this.boundHandleTouchStart = this.handleTouchStart.bind(this)
+    this.boundHandleTouchMove = this.handleTouchMove.bind(this)
+    this.boundHandleTouchEnd = this.handleTouchEnd.bind(this)
+    this.boundHandleContextLost = this.handleContextLost.bind(this)
+    this.boundHandleContextRestored = this.handleContextRestored.bind(this)
+    this.boundHandleContextMenu = (event: MouseEvent) => event.preventDefault()
 
     this.init()
   }
@@ -204,66 +222,155 @@ export class WebGLImageViewerEngine {
       const { type, payload } = event.data
       switch (type) {
         case 'loaded':
-          this.handleWorkerImageLoaded(payload)
+          void this.handleWorkerImageLoaded(payload)
           break
         case 'load-error':
-          this.handleWorkerImageLoadError(payload)
+          void this.handleWorkerImageLoadError(payload)
           break
       }
     }
 
     this.worker.onerror = (error) => {
       console.error('Worker error:', error)
+      void this.handleWorkerImageLoadError(error)
     }
   }
 
-  private handleWorkerImageLoaded(payload: any) {
+  private async handleWorkerImageLoaded(payload: any) {
     const { imageBitmap } = payload
 
     try {
-      this.image = imageBitmap
-
-      const shouldUseTiles = this.shouldUseTiles(imageBitmap)
-      let usingTiles = false
-
-      if (shouldUseTiles) {
-        this.emitLoadingStateChange(true, LoadingState.TILE_LOADING)
-        usingTiles = this.createTiles(imageBitmap)
+      const rendered = this.applyDecodedImage(imageBitmap)
+      if (!rendered) {
+        await this.renderWithMainThreadFallback(
+          new Error('Failed to render worker ImageBitmap'),
+        )
       }
 
-      if (!usingTiles) {
-        this.emitLoadingStateChange(true, LoadingState.TEXTURE_LOADING)
-        this.createTexture(imageBitmap)
-      } else {
-        this.updatePositionBuffer()
-      }
-
-      this.useTiles = usingTiles
-
-      if (this.config.centerOnInit) {
-        this.centerImage()
-      }
-
-      this.currentQuality = 'high'
-
-      this.emitLoadingStateChange(
-        false,
-        LoadingState.COMPLETE,
-        this.currentQuality,
-      )
-      this.render()
-      if (this.imageLoadingResolve) this.imageLoadingResolve()
+      this.resolvePendingImageLoad()
     } catch (err) {
-      console.error('Failed to create texture from ImageBitmap:', err)
-      this.emitLoadingStateChange(false, LoadingState.ERROR)
-      if (this.imageLoadingReject) this.imageLoadingReject(err as Error)
+      console.error('Failed to render worker image:', err)
+      this.rejectPendingImageLoad(err)
     }
   }
 
-  private handleWorkerImageLoadError(error: any) {
+  private async handleWorkerImageLoadError(error: any) {
     console.error('Image load error from worker:', error)
+
+    try {
+      await this.renderWithMainThreadFallback(error)
+      this.resolvePendingImageLoad()
+    } catch (fallbackError) {
+      this.rejectPendingImageLoad(fallbackError)
+    }
+  }
+
+  private applyDecodedImage(
+    imageSource: HTMLCanvasElement | HTMLImageElement | ImageBitmap,
+  ): boolean {
+    const originalDimensions = this.getSourceDimensions(imageSource)
+    if (!originalDimensions) {
+      return false
+    }
+
+    this.image = imageSource
+
+    const shouldUseTiles = this.shouldUseTiles(imageSource)
+    let usingTiles = false
+
+    if (shouldUseTiles) {
+      this.emitLoadingStateChange(true, LoadingState.TILE_LOADING)
+      usingTiles = this.createTiles(imageSource)
+    }
+
+    if (!usingTiles) {
+      this.emitLoadingStateChange(true, LoadingState.TEXTURE_LOADING)
+      const texture = this.createTexture(imageSource)
+      if (!texture) {
+        return false
+      }
+    } else {
+      this.updatePositionBuffer()
+    }
+
+    this.useTiles = usingTiles
+
+    if (this.config.centerOnInit) {
+      this.centerImage()
+    }
+
+    const finalWidth = this.image?.width ?? originalDimensions.width
+    const finalHeight = this.image?.height ?? originalDimensions.height
+    const widthRatio = finalWidth / originalDimensions.width
+    const heightRatio = finalHeight / originalDimensions.height
+    const minRatio = Math.min(widthRatio, heightRatio)
+
+    if (minRatio < 0.6) {
+      this.currentQuality = 'low'
+    } else if (minRatio < 0.9) {
+      this.currentQuality = 'medium'
+    } else {
+      this.currentQuality = 'high'
+    }
+
+    this.emitLoadingStateChange(false, LoadingState.COMPLETE, this.currentQuality)
+    this.render()
+
+    return true
+  }
+
+  private async decodeImageOnMainThread(src: string): Promise<HTMLImageElement> {
+    return await new Promise((resolve, reject) => {
+      const image = new Image()
+      image.crossOrigin = 'anonymous'
+      image.decoding = 'async'
+      image.onload = () => resolve(image)
+      image.onerror = () => {
+        reject(new Error('Failed to decode image on main thread'))
+      }
+      image.src = src
+    })
+  }
+
+  private async renderWithMainThreadFallback(reason: unknown): Promise<void> {
+    const src = this.lastRequestedSrc
+    if (!src) {
+      if (reason instanceof Error) {
+        throw reason
+      }
+      throw new Error('No image source available for fallback decode')
+    }
+
+    console.warn('Falling back to main-thread decode/render.', reason)
+    this.emitLoadingStateChange(true, LoadingState.IMAGE_LOADING)
+
+    const image = await this.decodeImageOnMainThread(src)
+    const rendered = this.applyDecodedImage(image)
+
+    if (!rendered) {
+      throw new Error('Main-thread decode succeeded but rendering still failed')
+    }
+  }
+
+  private resolvePendingImageLoad(): void {
+    const resolve = this.imageLoadingResolve
+    this.imageLoadingResolve = null
+    this.imageLoadingReject = null
+    resolve?.()
+  }
+
+  private rejectPendingImageLoad(error: unknown): void {
+    const reject = this.imageLoadingReject
+    this.imageLoadingResolve = null
+    this.imageLoadingReject = null
+
+    const normalizedError =
+      error instanceof Error
+        ? error
+        : new Error(typeof error === 'string' ? error : 'Unknown image load error')
+
     this.emitLoadingStateChange(false, LoadingState.ERROR)
-    if (this.imageLoadingReject) this.imageLoadingReject(error as Error)
+    reject?.(normalizedError)
   }
 
   private createBuffers(): void {
@@ -306,45 +413,49 @@ export class WebGLImageViewerEngine {
 
   private setupEventListeners(): void {
     // 鼠标事件
-    this.canvas.addEventListener('mousedown', this.handleMouseDown.bind(this))
+    this.canvas.addEventListener('mousedown', this.boundHandleMouseDown)
     this.canvas.addEventListener('mouseleave', this.boundHandleMouseLeave)
-    this.canvas.addEventListener('wheel', this.handleWheel.bind(this), {
+    this.canvas.addEventListener('wheel', this.boundHandleWheel, {
       passive: false,
     })
-    this.canvas.addEventListener('click', this.handleClick.bind(this))
+    this.canvas.addEventListener('click', this.boundHandleClick)
 
     // 触摸事件
-    this.canvas.addEventListener(
-      'touchstart',
-      this.handleTouchStart.bind(this),
-      { passive: false },
-    )
-    this.canvas.addEventListener('touchmove', this.handleTouchMove.bind(this), {
+    this.canvas.addEventListener('touchstart', this.boundHandleTouchStart, {
       passive: false,
     })
-    this.canvas.addEventListener('touchend', this.handleTouchEnd.bind(this), {
+    this.canvas.addEventListener('touchmove', this.boundHandleTouchMove, {
+      passive: false,
+    })
+    this.canvas.addEventListener('touchend', this.boundHandleTouchEnd, {
       passive: false,
     })
 
     // WebGL 上下文丢失事件
     this.canvas.addEventListener(
       'webglcontextlost',
-      this.handleContextLost.bind(this),
+      this.boundHandleContextLost,
       false,
     )
     this.canvas.addEventListener(
       'webglcontextrestored',
-      this.handleContextRestored.bind(this),
+      this.boundHandleContextRestored,
       false,
     )
 
     // 防止上下文菜单
-    this.canvas.addEventListener('contextmenu', (e) => e.preventDefault())
+    this.canvas.addEventListener('contextmenu', this.boundHandleContextMenu)
   }
 
   private setupResizeObserver(): void {
     this.resizeObserver = new ResizeObserver(() => {
-      this.resize()
+      if (this.resizeAnimationFrameId) {
+        cancelAnimationFrame(this.resizeAnimationFrameId)
+      }
+      this.resizeAnimationFrameId = requestAnimationFrame(() => {
+        this.resizeAnimationFrameId = null
+        this.resize()
+      })
     })
     this.resizeObserver.observe(this.canvas)
   }
@@ -363,6 +474,7 @@ export class WebGLImageViewerEngine {
 
   public async loadImage(src: string): Promise<void> {
     console.log('Post load image:', src)
+    this.lastRequestedSrc = src
     this.emitLoadingStateChange(true, LoadingState.IMAGE_LOADING)
 
     return new Promise((resolve, reject) => {
@@ -370,13 +482,24 @@ export class WebGLImageViewerEngine {
       this.imageLoadingReject = reject
       if (this.worker) {
         try {
-          const absolute = new URL(src, self.location?.origin || 'http://localhost')
-          this.worker.postMessage({ type: 'load', payload: { src: absolute.toString() } })
-        } catch {
-          this.worker.postMessage({ type: 'load', payload: { src } })
+          const absolute = new URL(
+            src,
+            self.location?.origin || 'http://localhost',
+          )
+          this.worker.postMessage({
+            type: 'load',
+            payload: { src: absolute.toString() },
+          })
+        } catch (error) {
+          console.warn('Worker postMessage failed, using main-thread fallback.', error)
+          void this.renderWithMainThreadFallback(error)
+            .then(() => this.resolvePendingImageLoad())
+            .catch((fallbackError) => this.rejectPendingImageLoad(fallbackError))
         }
       } else {
-        reject(new Error('No worker available'))
+        void this.renderWithMainThreadFallback(new Error('No worker available'))
+          .then(() => this.resolvePendingImageLoad())
+          .catch((error) => this.rejectPendingImageLoad(error))
       }
     })
   }
@@ -395,73 +518,191 @@ export class WebGLImageViewerEngine {
       gl.deleteTexture(this.texture)
     }
 
+    const dimensions = this.getSourceDimensions(imageSource)
+    if (!dimensions) {
+      return null
+    }
+
     // 获取最大纹理尺寸并判断是否需要缩放
     const maxTextureSize = getMaxTextureSize(gl)
-    const srcWidth =
-      (imageSource as HTMLCanvasElement).width ??
-      (imageSource as HTMLImageElement).width ??
-      (imageSource as ImageBitmap).width
-    const srcHeight =
-      (imageSource as HTMLCanvasElement).height ??
-      (imageSource as HTMLImageElement).height ??
-      (imageSource as ImageBitmap).height
+    const maxTexturePixels = this.getTextureUploadPixelBudget(maxTextureSize)
+    const sourcePixels = dimensions.width * dimensions.height
+
+    let targetWidth = dimensions.width
+    let targetHeight = dimensions.height
+
+    if (
+      sourcePixels > maxTexturePixels ||
+      dimensions.width > maxTextureSize ||
+      dimensions.height > maxTextureSize
+    ) {
+      const pixelScale = Math.min(1, Math.sqrt(maxTexturePixels / sourcePixels))
+      const sizeScale = Math.min(
+        pixelScale,
+        maxTextureSize / dimensions.width,
+        maxTextureSize / dimensions.height,
+      )
+      targetWidth = Math.max(1, Math.floor(dimensions.width * sizeScale))
+      targetHeight = Math.max(1, Math.floor(dimensions.height * sizeScale))
+    }
 
     let finalSource: HTMLCanvasElement | HTMLImageElement | ImageBitmap =
       imageSource
-
-    // 如果超出最大纹理尺寸，使用离屏 canvas 等比缩放
     if (
-      typeof srcWidth === 'number' &&
-      typeof srcHeight === 'number' &&
-      (srcWidth > maxTextureSize || srcHeight > maxTextureSize)
+      targetWidth !== dimensions.width ||
+      targetHeight !== dimensions.height
     ) {
-      const scale = Math.min(
-        maxTextureSize / srcWidth,
-        maxTextureSize / srcHeight,
+      const resizedSource = this.resizeImageSource(
+        imageSource,
+        targetWidth,
+        targetHeight,
       )
-
-      const targetWidth = Math.max(1, Math.floor(srcWidth * scale))
-      const targetHeight = Math.max(1, Math.floor(srcHeight * scale))
-
-      const offscreen = document.createElement('canvas')
-      offscreen.width = targetWidth
-      offscreen.height = targetHeight
-      const ctx = offscreen.getContext('2d')
-      if (ctx) {
-        ctx.imageSmoothingEnabled = true
-        
-        ctx.imageSmoothingQuality = 'high'
-        ctx.drawImage(imageSource as any, 0, 0, targetWidth, targetHeight)
-        finalSource = offscreen
-      } else {
-        finalSource = imageSource
+      if (resizedSource) {
+        finalSource = resizedSource
       }
     }
 
-    this.texture = gl.createTexture()
-    gl.bindTexture(gl.TEXTURE_2D, this.texture)
+    let uploadSuccess = false
+    let attempt = 0
 
-    // 设置纹理参数
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+    while (attempt < RENDER_CONFIG.TEXTURE_RETRY_LIMIT) {
+      this.texture = gl.createTexture()
+      if (!this.texture) {
+        break
+      }
 
-    // 上传图像数据（使用可能缩放后的来源）
-    gl.texImage2D(
-      gl.TEXTURE_2D,
-      0,
-      gl.RGBA,
-      gl.RGBA,
-      gl.UNSIGNED_BYTE,
-      finalSource,
-    )
+      gl.bindTexture(gl.TEXTURE_2D, this.texture)
+
+      // 设置纹理参数
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+
+      let uploadError: unknown = null
+      try {
+        gl.texImage2D(
+          gl.TEXTURE_2D,
+          0,
+          gl.RGBA,
+          gl.RGBA,
+          gl.UNSIGNED_BYTE,
+          finalSource,
+        )
+      } catch (error) {
+        uploadError = error
+      }
+
+      const glError = gl.getError()
+      if (!uploadError && glError === gl.NO_ERROR) {
+        uploadSuccess = true
+        break
+      }
+
+      if (uploadError) {
+        console.warn('Texture upload error, retrying with smaller source.', {
+          attempt: attempt + 1,
+          error: uploadError,
+        })
+      } else {
+        console.warn('Texture upload failed, retrying with smaller source.', {
+          attempt: attempt + 1,
+          glError,
+        })
+      }
+
+      if (this.texture) {
+        gl.deleteTexture(this.texture)
+        this.texture = null
+      }
+
+      const currentDimensions = this.getSourceDimensions(finalSource)
+      if (!currentDimensions) {
+        break
+      }
+
+      const retryWidth = Math.max(
+        1,
+        Math.floor(
+          currentDimensions.width * RENDER_CONFIG.TEXTURE_RETRY_SCALE_FACTOR,
+        ),
+      )
+      const retryHeight = Math.max(
+        1,
+        Math.floor(
+          currentDimensions.height * RENDER_CONFIG.TEXTURE_RETRY_SCALE_FACTOR,
+        ),
+      )
+
+      if (
+        retryWidth >= currentDimensions.width &&
+        retryHeight >= currentDimensions.height
+      ) {
+        break
+      }
+
+      const resizedSource = this.resizeImageSource(
+        finalSource,
+        retryWidth,
+        retryHeight,
+      )
+      if (!resizedSource) {
+        break
+      }
+
+      finalSource = resizedSource
+      attempt += 1
+    }
+
+    gl.bindTexture(gl.TEXTURE_2D, null)
+
+    if (!uploadSuccess || !this.texture) {
+      this.texture = null
+      return null
+    }
 
     // 更新内部 image 引用为最终用于渲染的尺寸
     this.image = finalSource as any
     this.updatePositionBuffer()
 
     return this.texture
+  }
+
+  private getSourceDimensions(source: {
+    width: number
+    height: number
+  }): { width: number; height: number } | null {
+    const { width, height } = source
+    if (!isFinite(width) || !isFinite(height) || width <= 0 || height <= 0) {
+      return null
+    }
+    return { width, height }
+  }
+
+  private getTextureUploadPixelBudget(maxTextureSize: number): number {
+    const maxTexturePixels = Math.max(1, maxTextureSize * maxTextureSize)
+    return Math.min(RENDER_CONFIG.MAX_TEXTURE_UPLOAD_PIXELS, maxTexturePixels)
+  }
+
+  private resizeImageSource(
+    source: CanvasImageSource,
+    targetWidth: number,
+    targetHeight: number,
+  ): HTMLCanvasElement | null {
+    const offscreen = document.createElement('canvas')
+    offscreen.width = targetWidth
+    offscreen.height = targetHeight
+    const ctx = offscreen.getContext('2d')
+    if (!ctx) {
+      return null
+    }
+
+    ctx.imageSmoothingEnabled = true
+    ctx.imageSmoothingQuality = 'high'
+    ctx.clearRect(0, 0, targetWidth, targetHeight)
+    ctx.drawImage(source, 0, 0, targetWidth, targetHeight)
+
+    return offscreen
   }
 
   private cleanupTiles(): void {
@@ -482,15 +723,21 @@ export class WebGLImageViewerEngine {
   ): boolean {
     if (!source) return false
 
+    if (!this.config.tileEnabled) return false
+
+    const sourcePixels = source.width * source.height
+    if (sourcePixels > RENDER_CONFIG.MAX_TILE_TOTAL_PIXELS) {
+      return false
+    }
+
     const maxTextureSize = getMaxTextureSize(this.gl)
     if (source.width > maxTextureSize || source.height > maxTextureSize) {
       return true
     }
 
-    if (!this.config.tileEnabled) return false
-
     return (
-      source.width > this.config.tileSize || source.height > this.config.tileSize
+      source.width > this.config.tileSize ||
+      source.height > this.config.tileSize
     )
   }
 
@@ -522,6 +769,10 @@ export class WebGLImageViewerEngine {
       (imageSource as ImageBitmap).height
 
     if (!width || !height) {
+      return false
+    }
+
+    if (width * height > RENDER_CONFIG.MAX_TILE_TOTAL_PIXELS) {
       return false
     }
 
@@ -606,7 +857,10 @@ export class WebGLImageViewerEngine {
         }
       }
     } catch (error) {
-      console.warn('Failed to create tiles, falling back to single texture.', error)
+      console.warn(
+        'Failed to create tiles, falling back to single texture.',
+        error,
+      )
       disposeTiles()
       this.cleanupTiles()
       return false
@@ -630,8 +884,8 @@ export class WebGLImageViewerEngine {
       return this.tiles
     }
 
-    const viewLeft = (-this.transform.translateX) / scale
-    const viewTop = (-this.transform.translateY) / scale
+    const viewLeft = -this.transform.translateX / scale
+    const viewTop = -this.transform.translateY / scale
     const viewRight = (this.canvas.width - this.transform.translateX) / scale
     const viewBottom = (this.canvas.height - this.transform.translateY) / scale
 
@@ -650,24 +904,66 @@ export class WebGLImageViewerEngine {
   public resize(): void {
     const rect = this.canvas.getBoundingClientRect()
     const dpr = window.devicePixelRatio || 1
+    const prevCanvasWidth = this.canvas.width
+    const prevCanvasHeight = this.canvas.height
+    const nextCanvasWidth = Math.max(1, Math.round(rect.width * dpr))
+    const nextCanvasHeight = Math.max(1, Math.round(rect.height * dpr))
 
     // 检查画布尺寸是否有效
     if (rect.width <= 0 || rect.height <= 0) {
       return
     }
 
-    this.canvas.width = rect.width * dpr
-    this.canvas.height = rect.height * dpr
+    if (
+      nextCanvasWidth === prevCanvasWidth &&
+      nextCanvasHeight === prevCanvasHeight
+    ) {
+      return
+    }
+
+    this.canvas.width = nextCanvasWidth
+    this.canvas.height = nextCanvasHeight
 
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height)
 
     if (this.image) {
+      const prevScale = this.transform.scale
       const prevTranslateX = this.transform.translateX
       const prevTranslateY = this.transform.translateY
+      const oldInitialScale = this.initialScale
+
+      if (
+        prevCanvasWidth > 0 &&
+        prevCanvasHeight > 0 &&
+        isFinite(prevScale) &&
+        prevScale > 0
+      ) {
+        const viewportCenterImageX =
+          (prevCanvasWidth / 2 - this.transform.translateX) / prevScale
+        const viewportCenterImageY =
+          (prevCanvasHeight / 2 - this.transform.translateY) / prevScale
+
+        const newInitialScale = this.getFitScale()
+        const relativeZoomLevel =
+          oldInitialScale > 0 ? prevScale / oldInitialScale : 1
+        const nextScale = this.clampScale(newInitialScale * relativeZoomLevel)
+
+        this.initialScale = newInitialScale
+        this.transform.scale = nextScale
+        this.transform.translateX =
+          this.canvas.width / 2 - viewportCenterImageX * nextScale
+        this.transform.translateY =
+          this.canvas.height / 2 - viewportCenterImageY * nextScale
+      }
 
       this.constrainToBounds()
 
+      if (prevScale !== this.transform.scale) {
+        this.emitZoomChange()
+      }
+
       if (
+        prevScale !== this.transform.scale ||
         prevTranslateX !== this.transform.translateX ||
         prevTranslateY !== this.transform.translateY
       ) {
@@ -684,27 +980,16 @@ export class WebGLImageViewerEngine {
   private centerImage(): void {
     if (!this.image || this.image.width <= 0 || this.image.height <= 0) return
 
-    const canvasAspect = this.canvas.width / this.canvas.height
-    const imageAspect = this.image.width / this.image.height
-
     // 避免除零错误
     if (this.canvas.width <= 0 || this.canvas.height <= 0) return
 
-    // 计算适合屏幕的初始缩放值
-    let initialScale: number
-    if (imageAspect > canvasAspect) {
-      initialScale = this.canvas.width / this.image.width
-    } else {
-      initialScale = this.canvas.height / this.image.height
-    }
-
     // 设置初始缩放（这是相对缩放的基准）
-    this.initialScale = initialScale
+    this.initialScale = this.getFitScale()
 
     // 基于相对缩放限制计算实际缩放值
     // 如果用户设置的相对缩放限制允许，我们使用初始缩放值
     // 否则使用限制后的值
-    const actualScale = this.clampScale(initialScale)
+    const actualScale = this.clampScale(this.initialScale)
 
     const scaledWidth = this.image.width * actualScale
     const scaledHeight = this.image.height * actualScale
@@ -792,7 +1077,11 @@ export class WebGLImageViewerEngine {
       gl.clear(gl.COLOR_BUFFER_BIT)
       gl.useProgram(this.program)
 
-      gl.uniform2f(this.resolutionLocation, this.canvas.width, this.canvas.height)
+      gl.uniform2f(
+        this.resolutionLocation,
+        this.canvas.width,
+        this.canvas.height,
+      )
       gl.uniform1i(this.imageLocation, 0)
 
       const matrix = createTransformMatrix(
@@ -1253,11 +1542,17 @@ export class WebGLImageViewerEngine {
         if (usingTiles) {
           const recreated = this.createTiles(this.image)
           if (!recreated) {
-            this.createTexture(this.image)
+            const texture = this.createTexture(this.image)
+            if (!texture) {
+              throw new Error('Failed to recreate texture after context restore')
+            }
             usingTiles = false
           }
         } else {
-          this.createTexture(this.image)
+          const texture = this.createTexture(this.image)
+          if (!texture) {
+            throw new Error('Failed to recreate texture after context restore')
+          }
         }
 
         this.useTiles = usingTiles && this.tiles.length > 0
@@ -1306,27 +1601,16 @@ export class WebGLImageViewerEngine {
       return { ...this.transform }
     }
 
-    const canvasAspect = this.canvas.width / this.canvas.height
-    const imageAspect = this.image.width / this.image.height
-
     // 避免除零错误
     if (this.canvas.width <= 0 || this.canvas.height <= 0) {
       return { ...this.transform }
     }
 
-    // 计算适合屏幕的初始缩放值
-    let initialScale: number
-    if (imageAspect > canvasAspect) {
-      initialScale = this.canvas.width / this.image.width
-    } else {
-      initialScale = this.canvas.height / this.image.height
-    }
-
     // 设置初始缩放（这是相对缩放的基准）
-    this.initialScale = initialScale
+    this.initialScale = this.getFitScale()
 
     // 基于相对缩放限制计算实际缩放值
-    const actualScale = this.clampScale(initialScale)
+    const actualScale = this.clampScale(this.initialScale)
 
     const scaledWidth = this.image.width * actualScale
     const scaledHeight = this.image.height * actualScale
@@ -1340,6 +1624,29 @@ export class WebGLImageViewerEngine {
 
   public getScale(): number {
     return this.transform.scale
+  }
+
+  private getFitScale(): number {
+    if (
+      !this.image ||
+      this.image.width <= 0 ||
+      this.image.height <= 0 ||
+      this.canvas.width <= 0 ||
+      this.canvas.height <= 0
+    ) {
+      return this.initialScale
+    }
+
+    const canvasAspect = this.canvas.width / this.canvas.height
+    const imageAspect = this.image.width / this.image.height
+
+    if (!isFinite(canvasAspect) || !isFinite(imageAspect)) {
+      return this.initialScale
+    }
+
+    return imageAspect > canvasAspect
+      ? this.canvas.width / this.image.width
+      : this.canvas.height / this.image.height
   }
 
   public getRelativeScale(): number {
@@ -1525,31 +1832,22 @@ export class WebGLImageViewerEngine {
     }
 
     // 清理事件监听器
-    this.canvas.removeEventListener(
-      'mousedown',
-      this.handleMouseDown.bind(this),
-    )
+    this.canvas.removeEventListener('mousedown', this.boundHandleMouseDown)
     this.canvas.removeEventListener('mouseleave', this.boundHandleMouseLeave)
-    this.canvas.removeEventListener('wheel', this.handleWheel.bind(this))
-    this.canvas.removeEventListener('click', this.handleClick.bind(this))
-    this.canvas.removeEventListener(
-      'touchstart',
-      this.handleTouchStart.bind(this),
-    )
-    this.canvas.removeEventListener(
-      'touchmove',
-      this.handleTouchMove.bind(this),
-    )
-    this.canvas.removeEventListener('touchend', this.handleTouchEnd.bind(this))
+    this.canvas.removeEventListener('wheel', this.boundHandleWheel)
+    this.canvas.removeEventListener('click', this.boundHandleClick)
+    this.canvas.removeEventListener('touchstart', this.boundHandleTouchStart)
+    this.canvas.removeEventListener('touchmove', this.boundHandleTouchMove)
+    this.canvas.removeEventListener('touchend', this.boundHandleTouchEnd)
     this.canvas.removeEventListener(
       'webglcontextlost',
-      this.handleContextLost.bind(this),
+      this.boundHandleContextLost,
     )
     this.canvas.removeEventListener(
       'webglcontextrestored',
-      this.handleContextRestored.bind(this),
+      this.boundHandleContextRestored,
     )
-    this.canvas.removeEventListener('contextmenu', (e) => e.preventDefault())
+    this.canvas.removeEventListener('contextmenu', this.boundHandleContextMenu)
 
     // 清理全局事件监听器（防止内存泄露）
     document.removeEventListener('mouseup', this.boundHandleMouseUp)
@@ -1559,6 +1857,10 @@ export class WebGLImageViewerEngine {
     if (this.resizeObserver) {
       this.resizeObserver.disconnect()
       this.resizeObserver = null
+    }
+    if (this.resizeAnimationFrameId) {
+      cancelAnimationFrame(this.resizeAnimationFrameId)
+      this.resizeAnimationFrameId = null
     }
 
     // 重置状态

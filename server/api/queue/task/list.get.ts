@@ -9,14 +9,18 @@ export default defineEventHandler(async (event) => {
 
   try {
     const query = getQuery(event)
-    const {
-      status,
-      type,
-    } = await z
+    const { status, type } = await z
       .object({
-        status: z.enum(['pending', 'in-stages', 'completed', 'failed']).optional(),
+        status: z
+          .enum(['pending', 'in-stages', 'completed', 'failed'])
+          .optional(),
         type: z
-          .enum(['photo', 'live-photo-video', 'photo-reverse-geocoding'])
+          .enum([
+            'photo',
+            'live-photo-video',
+            'photo-reverse-geocoding',
+            'photo-erase-location',
+          ])
           .optional(),
       })
       .parseAsync(query)
@@ -25,17 +29,20 @@ export default defineEventHandler(async (event) => {
 
     // 构建查询条件
     const conditions = []
-    
+
     if (status) {
       conditions.push(eq(tables.pipelineQueue.status, status))
     }
-    
+
     if (type) {
-      conditions.push(eq(sql`json_extract(${tables.pipelineQueue.payload}, '$.type')`, type))
+      conditions.push(
+        eq(sql`json_extract(${tables.pipelineQueue.payload}, '$.type')`, type),
+      )
     }
 
-    const whereCondition = conditions.length > 0 ? and(...conditions) : undefined
-    
+    const whereCondition =
+      conditions.length > 0 ? and(...conditions) : undefined
+
     // 构建查询
     const queryBuilder = db
       .select({
