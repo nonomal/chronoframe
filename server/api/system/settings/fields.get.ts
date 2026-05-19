@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { settingsManager } from '~~/server/services/settings/settingsManager'
+import { DEFAULT_SETTINGS } from '~~/server/services/settings/contants'
 import { getSettingUIConfig } from '~~/server/services/settings/ui-config'
 import type { SettingsFieldsResponse } from '~~/shared/types/settings'
 
@@ -16,11 +17,9 @@ import type { SettingsFieldsResponse } from '~~/shared/types/settings'
 export default eventHandler(async (event) => {
   const query = await getValidatedQuery(
     event,
-    z
-      .object({
-        namespace: z.string().min(1),
-      })
-      .parse,
+    z.object({
+      namespace: z.string().min(1),
+    }).parse,
   )
 
   const session = await requireUserSession(event)
@@ -34,8 +33,13 @@ export default eventHandler(async (event) => {
   try {
     // 获取该命名空间的所有设置
     const schema = await settingsManager.getSchema()
+    const allowedKeys = new Set(
+      DEFAULT_SETTINGS
+        .filter((s) => s.namespace === query.namespace)
+        .map((s) => s.key),
+    )
     const namespaceSettings = schema.filter(
-      (s) => s.namespace === query.namespace,
+      (s) => s.namespace === query.namespace && allowedKeys.has(s.key),
     )
 
     if (namespaceSettings.length === 0) {
@@ -69,7 +73,8 @@ export default eventHandler(async (event) => {
     }
     throw createError({
       statusCode: 500,
-      statusMessage: (error as Error).message || 'Failed to fetch settings fields',
+      statusMessage:
+        (error as Error).message || 'Failed to fetch settings fields',
     })
   }
 })

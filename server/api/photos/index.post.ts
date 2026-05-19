@@ -2,11 +2,9 @@ import path from 'path'
 import { useStorageProvider } from '~~/server/utils/useStorageProvider'
 import { eq } from 'drizzle-orm'
 import { generateSafePhotoId } from '~~/server/utils/file-utils'
+import { settingsManager } from '~~/server/services/settings/settingsManager'
 
-const VIDEO_EXTENSIONS = new Set([
-  '.mov',
-  '.mp4',
-])
+const VIDEO_EXTENSIONS = new Set(['.mov', '.mp4'])
 
 const IMAGE_EXTENSIONS = new Set([
   '.avif',
@@ -22,7 +20,10 @@ const IMAGE_EXTENSIONS = new Set([
   '.webp',
 ])
 
-const isVideoFile = (fileName: string, contentType?: string | null): boolean => {
+const isVideoFile = (
+  fileName: string,
+  contentType?: string | null,
+): boolean => {
   if (contentType?.toLowerCase().startsWith('video/')) {
     return true
   }
@@ -43,7 +44,6 @@ const isLikelyImageKey = (storageKey?: string | null): boolean => {
 export default eventHandler(async (event) => {
   await requireUserSession(event)
   const { storageProvider } = useStorageProvider(event)
-  const config = useRuntimeConfig(event)
   const t = await useTranslation(event)
 
   const body = await readBody(event)
@@ -62,7 +62,10 @@ export default eventHandler(async (event) => {
 
     // 重复文件检测
     const duplicateCheckEnabled =
-      config.upload.duplicateCheck.enabled && !skipDuplicateCheck
+      ((await settingsManager.get<boolean>(
+        'system',
+        'upload.duplicateCheck.enabled',
+      )) ?? true) && !skipDuplicateCheck
     let existingPhoto = null
 
     if (duplicateCheckEnabled) {
@@ -82,12 +85,20 @@ export default eventHandler(async (event) => {
         .where(eq(tables.photos.id, photoId))
         .get()
 
-      if (existingPhoto && isVideoUpload && isLikelyImageKey(existingPhoto.storageKey)) {
+      if (
+        existingPhoto &&
+        isVideoUpload &&
+        isLikelyImageKey(existingPhoto.storageKey)
+      ) {
         existingPhoto = null
       }
 
       if (existingPhoto) {
-        const checkMode = config.upload.duplicateCheck.mode || 'skip'
+        const checkMode =
+          (await settingsManager.get<'warn' | 'block' | 'skip'>(
+            'system',
+            'upload.duplicateCheck.mode',
+          )) ?? 'skip'
 
         if (checkMode === 'block') {
           // 阻止模式：直接拒绝上传

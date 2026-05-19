@@ -160,14 +160,14 @@
       "add": "表態",
       "change": "已表態",
       "count": "無表態 | {count} 個表態 | {count} 個表態",
-      "like": "讚好",
-      "love": "心心",
-      "amazing": "花癡",
-      "funny": "笑哭",
-      "wow": "驚訝",
-      "sad": "喊",
-      "fire": "火焰",
-      "sparkle": "星星"
+      "like": "影得好",
+      "love": "喜歡",
+      "amazing": "驚嘆",
+      "funny": "哈哈",
+      "wow": "嘩塞",
+      "sad": "感動",
+      "fire": "助火",
+      "sparkle": "閃耀"
     },
     "photoload": {
       "loadError": "圖片載入失敗",
@@ -362,6 +362,7 @@
     "siteAdministration": "站點設置",
     "generalSettings": "基本設置",
     "appearanceSettings": "外觀設置",
+    "privacySettings": "隱私設置",
     "mapAndLocation": "地圖和位置",
     "location": "位置服務"
   },
@@ -379,9 +380,16 @@
         "email": "電子郵箱",
         "password": "密碼"
       }
+    },
+    "messages": {
+      "loginFailed": {
+        "title": "登入失敗",
+        "description": "發生未預期錯誤，請稍後再試。"
+      }
     }
   },
   "common": {
+    "unsavedChanges": "目前有尚未儲存的變更。",
     "months": {
       "jan": "一月",
       "feb": "二月",
@@ -480,6 +488,7 @@
       "actions": {
         "reprocess": "重新處理",
         "refreshLocation": "重新取得城市",
+        "eraseLocationInfo": "抹除位置資訊",
         "delete": "刪除",
         "editMetadata": "編輯資訊",
         "previewPhoto": "相片預覽"
@@ -487,12 +496,19 @@
       "selection": {
         "selected": "已選擇 {count} / {total} 列",
         "batchReprocess": "批量重新處理",
+        "batchEraseLocation": "抹除位置資訊",
         "batchDownload": "批量下載",
         "batchDelete": "批量刪除"
       },
       "slideover": {
         "title": "上傳相片",
         "description": "拖曳或選擇檔案。相片會自動處理並新增到圖庫。",
+        "options": {
+          "eraseLocation": {
+            "label": "上傳時抹除位置資訊",
+            "description": "本次上傳可覆蓋系統預設值，您可隨時切換開啟或關閉。"
+          }
+        },
         "buttons": {
           "clear": "清除選擇",
           "upload": "上傳 {count} 個檔案"
@@ -532,6 +548,8 @@
         "uploadSuccess": "相片上傳成功，處理中...",
         "uploadMultipleSuccess": "{count} 張相片上傳成功，處理中...",
         "reprocessSuccess": "重新處理任務已新增",
+        "batchReprocessSuccess": "已成功提交 {count} 張相片至重新處理佇列",
+        "batchReprocessing": "正在提交重新處理任務...",
         "reprocessTaskId": "任務 ID：{taskId}",
         "deleteSuccess": "相片已成功刪除",
         "batchDeleteSuccess": "成功刪除 {count} 張相片",
@@ -563,12 +581,19 @@
         "noChangesProvided": "沒有可套用的變更",
         "queueUnavailable": "任務隊列不可用",
         "reverseGeocodeQueued": "已新增重新取得城市的任務",
-        "reverseGeocodeFailed": "重新取得城市任務新增失敗"
+        "reverseGeocodeFailed": "重新取得城市任務新增失敗",
+        "eraseLocationQueued": "已新增抹除位置資訊任務",
+        "eraseLocationFailed": "抹除位置資訊任務新增失敗",
+        "batchEraseLocationQueued": "已新增 {count} 條抹除位置資訊任務",
+        "batchEraseLocationFailed": "批量抹除位置資訊任務新增失敗"
       },
       "errors": {
         "noSelection": "請選擇相片進行上傳",
         "fileValidationFailed": "檔案驗證失敗",
         "allFilesValidationFailed": "所有檔案驗證失敗",
+        "allFilesTooLarge": "所選 {count} 個檔案皆超過最大大小限制（{maxSize}MB）。",
+        "filesTooLargeSkipped": "已略過 {count} 個過大檔案（上限 {maxSize}MB），其餘檔案將繼續上傳。",
+        "filesUnsupportedSkipped": "已略過 {count} 個不支援格式的檔案，其餘檔案將繼續上傳。",
         "unsupportedFormat": "不支援的檔案格式：{type}。請選擇 JPEG、PNG 或 HEIC 相片，或 MOV 格式的實況相片影片。",
         "fileTooLarge": "檔案過大：{size}MB。最大支援：{maxSize}MB。",
         "uploadFailed": "上傳失敗",
@@ -604,7 +629,7 @@
           "tagsHint": "按 Enter 鍵新增每個標籤。",
           "location": "拍攝位置",
           "locationHint": "點擊地圖選擇或更新拍攝位置。",
-          "clearLocation": "清除位置",
+          "clearLocation": "抹除位置資訊",
           "coordinates": "座標",
           "noLocation": "未選擇位置",
           "rating": "評分",
@@ -614,6 +639,40 @@
         "actions": {
           "cancel": "取消",
           "save": "儲存變更"
+        }
+      },
+      "uploadQueueItem": {
+        "status": {
+          "waiting": "等待上傳",
+          "preparing": "準備中",
+          "uploading": "上傳中 {0}%",
+          "pendingProcessing": "等待處理",
+          "completed": "完成",
+          "error": "錯誤",
+          "skipped": "已跳過",
+          "blocked": "已阻止",
+          "unknown": "未知"
+        },
+        "stage": {
+          "preprocessing": "預處理中",
+          "metadata": "擷取中繼資料",
+          "thumbnail": "產生縮圖",
+          "exif": "處理 EXIF",
+          "reverseGeocoding": "地理解析",
+          "livePhoto": "偵測 Live Photo"
+        },
+        "actions": {
+          "abort": "中止",
+          "clear": "清除"
+        },
+        "progress": {
+          "upload": "上傳進度",
+          "remainingTime": "剩餘時間: {0}",
+          "processing": "處理狀態"
+        },
+        "alerts": {
+          "longProcessing": "大型檔案處理時間較長，屬正常現象。",
+          "success": "檔案已成功上傳並完成處理"
         }
       }
     },
@@ -780,7 +839,8 @@
       "types": {
         "photo": "照片處理",
         "live-photo-video": "LivePhoto視頻",
-        "photo-reverse-geocoding": "照片逆地理編碼"
+        "photo-reverse-geocoding": "照片逆地理編碼",
+        "photo-erase-location": "照片位置資訊抹除"
       },
       "stages": {
         "preprocessing": "預處理",
@@ -788,7 +848,8 @@
         "thumbnail": "縮略圖",
         "exif": "EXIF處理",
         "reverse-geocoding": "地理解析",
-        "live-photo": "LivePhoto處理"
+        "live-photo": "LivePhoto處理",
+        "location-erase": "位置資訊抹除"
       },
       "buttons": {
         "retry": "重試",
@@ -838,6 +899,60 @@
           "dark": "深色",
           "system": "系統"
         }
+      },
+      "upload": {
+        "maxFileSize": {
+          "label": "最大上傳檔案大小",
+          "description": "允許上傳的單一檔案最大大小（MB）",
+          "help": "設定後立即生效，影響所有用戶的檔案上傳操作"
+        }
+      }
+    },
+    "system": {
+      "sections": {
+        "thirdPartyLogin": "第三方登入",
+        "fileProcessing": "檔案處理",
+        "debugSettings": "除錯設定"
+      },
+      "upload": {
+        "duplicateCheck": {
+          "enabled": {
+            "label": "上傳時偵測重複檔案",
+            "description": "按檔名偵測重複相片並套用對應策略",
+            "help": "關閉後會略過重複預檢，同名檔案會直接進入上傳流程"
+          },
+          "mode": {
+            "label": "重複檔案處理模式",
+            "description": "偵測到重複檔案時嘅處理方式",
+            "help": "只會喺啟用重複檔案偵測時生效",
+            "options": {
+              "skip": "跳過",
+              "warn": "警告並覆蓋",
+              "block": "阻止上傳"
+            }
+          }
+        }
+      },
+      "webglImageViewerDebug": {
+        "label": "WebGL Image Viewer 偵錯模式",
+        "description": "控制 WebGL 圖片檢視器是否喺生產環境都顯示偵錯資訊",
+        "help": "啟用後，已登入用戶喺任何環境都可以睇到 WebGL 偵錯面板；關閉後只會喺開發環境生效"
+      },
+      "auth": {
+        "github": {
+          "enabled": {
+            "label": "啟用 GitHub 登入",
+            "description": "是否啟用 GitHub OAuth 登入"
+          },
+          "clientId": {
+            "label": "GitHub Client ID",
+            "description": "GitHub OAuth 應用嘅 Client ID"
+          },
+          "clientSecret": {
+            "label": "GitHub Client Secret",
+            "description": "GitHub OAuth 應用嘅 Client Secret"
+          }
+        }
       }
     },
     "map": {
@@ -869,6 +984,11 @@
       }
     },
     "location": {
+      "language": {
+        "label": "地理位置語言",
+        "description": "進行逆地理編碼時所使用的語言",
+        "help": "選擇解析照片拍攝地點名稱時所使用的語言。預設為英文。"
+      },
       "mapbox": {
         "token": {
           "label": "Mapbox Token",
@@ -881,6 +1001,15 @@
           "label": "Nominatim 基礎 URL",
           "description": "Nominatim 反向地理編碼 API 嘅基礎 URL",
           "help": "留空則預設使用公開 Nominatim 服務"
+        }
+      }
+    },
+    "privacy": {
+      "upload": {
+        "autoEraseLocation": {
+          "label": "上傳時自動抹除位置資訊",
+          "description": "在上傳與處理照片時自動抹除 EXIF GPS 資訊並清空地理位置欄位",
+          "help": "啟用後會將抹除位置資訊操作放入佇列非同步執行"
         }
       }
     },
@@ -1005,10 +1134,18 @@
   },
   "wizard": {
     "admin": {
-      "username": { "label": "用戶名" },
-      "email": { "label": "電子郵箱" },
-      "password": { "label": "密碼" },
-      "confirmPassword": { "label": "確認密碼" }
+      "username": {
+        "label": "用戶名"
+      },
+      "email": {
+        "label": "電子郵箱"
+      },
+      "password": {
+        "label": "密碼"
+      },
+      "confirmPassword": {
+        "label": "確認密碼"
+      }
     },
     "map": {
       "provider": {
@@ -1021,6 +1158,122 @@
           "description": "Mapbox GL JS 的開源分支。"
         }
       }
+    }
+  },
+  "onboarding": {
+    "layout": {
+      "steps": {
+        "welcome": "歡迎",
+        "admin": "管理員帳號",
+        "site": "站點資訊",
+        "storage": "存儲設定",
+        "map": "地圖服務",
+        "complete": "完成"
+      },
+      "current": "進行中",
+      "stepCounter": "第 {0} 步 / 共 {1} 步"
+    },
+    "actions": {
+      "next": "下一步",
+      "completeSetup": "完成設定"
+    },
+    "welcome": {
+      "title": "歡迎使用 ChronoFrame",
+      "description": "跟著精靈，在幾分鐘內完成畫廊設定。",
+      "intro": "ChronoFrame 是多功能個人畫廊應用程式。開始上傳照片前，請先完成以下設定：",
+      "cards": {
+        "admin": {
+          "title": "管理員帳號",
+          "description": "用於登入管理後台"
+        },
+        "site": {
+          "title": "站點資訊",
+          "description": "打造你的專屬畫廊"
+        },
+        "storage": {
+          "title": "存儲",
+          "description": "將照片存儲在本機或雲端"
+        },
+        "map": {
+          "title": "地圖服務",
+          "description": "位置可視化與拍攝地標記"
+        }
+      },
+      "privacyNotice": "ChronoFrame 不會收集你的任何資料。",
+      "start": "開始吧"
+    },
+    "admin": {
+      "title": "管理員帳號",
+      "description": "建立管理員帳號"
+    },
+    "site": {
+      "title": "站點資訊",
+      "description": "設定站點基本資訊"
+    },
+    "storage": {
+      "title": "存儲設定",
+      "description": "選擇照片存儲位置"
+    },
+    "map": {
+      "title": "地圖服務",
+      "description": "為地球儀檢視與照片詳情小地圖設定地圖服務"
+    },
+    "complete": {
+      "title": "即將完成！",
+      "description": "你的 ChronoFrame 畫廊已可使用。",
+      "body": "你已完成所有基本設定。現在可使用管理員帳號登入並開始上傳照片。",
+      "goToDashboard": "前往儀表板",
+      "setupFailedTitle": "設定失敗",
+      "setupFailedDescription": "完成設定失敗"
+    }
+  },
+  "globe": {
+    "analysis": {
+      "annotation": "拍攝參數標註",
+      "annotationDescription": "依拍攝參數查看地理分布",
+      "mode": {
+        "none": {
+          "label": "預設",
+          "description": "關閉標註"
+        },
+        "focalLength": {
+          "label": "焦段",
+          "description": "廣角 / 標準 / 長焦"
+        },
+        "shutterSpeed": {
+          "label": "快門",
+          "description": "高速 / 中速 / 低速"
+        },
+        "altitude": {
+          "label": "海拔",
+          "description": "低 / 中 / 高海拔"
+        }
+      },
+      "legend": {
+        "focalLength": {
+          "title": "焦段分布",
+          "wide": "廣角",
+          "standard": "標準",
+          "telephoto": "長焦"
+        },
+        "shutterSpeed": {
+          "title": "快門分布",
+          "fast": "高速",
+          "medium": "中速",
+          "slow": "低速"
+        },
+        "altitude": {
+          "title": "海拔分布",
+          "low": "低海拔",
+          "medium": "中海拔",
+          "high": "高海拔"
+        }
+      }
+    },
+    "timeline": {
+      "toggle": "啟用/關閉時間回溯",
+      "playPause": "播放/暫停時間回溯",
+      "title": "時間回溯"
     }
   }
 }

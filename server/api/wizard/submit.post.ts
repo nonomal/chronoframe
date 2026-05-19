@@ -33,17 +33,20 @@ export default eventHandler(async (event) => {
   const db = useDB()
 
   // 1. Handle Admin User
+  let adminUser: typeof tables.users.$inferSelect | undefined
   const existingUser = db.select().from(tables.users).limit(1).get()
   if (existingUser) {
     if (existingUser.email === body.admin.email) {
-       await db.update(tables.users)
-         .set({
-           password: await hashPassword(body.admin.password),
-           username: body.admin.username,
-           isAdmin: 1
-         })
-         .where(eq(tables.users.id, existingUser.id))
-         .run()
+      await db
+        .update(tables.users)
+        .set({
+          password: await hashPassword(body.admin.password),
+          username: body.admin.username,
+          isAdmin: 1,
+        })
+        .where(eq(tables.users.id, existingUser.id))
+        .run()
+      adminUser = db.select().from(tables.users).where(eq(tables.users.id, existingUser.id)).get()
     } else {
       throw createError({
         statusCode: 400,
@@ -51,20 +54,27 @@ export default eventHandler(async (event) => {
       })
     }
   } else {
-    await db.insert(tables.users).values({
-      email: body.admin.email,
-      username: body.admin.username,
-      password: await hashPassword(body.admin.password),
-      isAdmin: 1,
-      createdAt: new Date(),
-    }).run()
+    await db
+      .insert(tables.users)
+      .values({
+        email: body.admin.email,
+        username: body.admin.username,
+        password: await hashPassword(body.admin.password),
+        isAdmin: 1,
+        createdAt: new Date(),
+      })
+      .run()
+    adminUser = db.select().from(tables.users).where(eq(tables.users.email, body.admin.email)).get()
   }
 
   // 2. Handle Site Settings
   await settingsManager.set('app', 'title', body.site.title)
-  if (body.site.slogan) await settingsManager.set('app', 'slogan', body.site.slogan)
-  if (body.site.avatarUrl) await settingsManager.set('app', 'avatarUrl', body.site.avatarUrl)
-  if (body.site.author) await settingsManager.set('app', 'author', body.site.author)
+  if (body.site.slogan)
+    await settingsManager.set('app', 'slogan', body.site.slogan)
+  if (body.site.avatarUrl)
+    await settingsManager.set('app', 'avatarUrl', body.site.avatarUrl)
+  if (body.site.author)
+    await settingsManager.set('app', 'author', body.site.author)
 
   // 3. Handle Storage Settings
   // Check if provider already exists to avoid duplicates if re-running?
@@ -80,14 +90,29 @@ export default eventHandler(async (event) => {
   await settingsManager.set('map', 'provider', body.map.provider)
   if (body.map.provider === 'mapbox') {
     await settingsManager.set('map', 'mapbox.token', body.map.token)
-    if (body.map.style) await settingsManager.set('map', 'mapbox.style', body.map.style)
+    if (body.map.style)
+      await settingsManager.set('map', 'mapbox.style', body.map.style)
   } else {
     await settingsManager.set('map', 'maplibre.token', body.map.token)
-    if (body.map.style) await settingsManager.set('map', 'maplibre.style', body.map.style)
+    if (body.map.style)
+      await settingsManager.set('map', 'maplibre.style', body.map.style)
   }
 
   // 5. Mark Complete
   await settingsManager.set('system', 'firstLaunch', false, undefined, true)
+
+  // 6. Auto-login the admin user
+  if (adminUser) {
+    await setUserSession(
+      event,
+      { user: adminUser },
+      {
+        cookie: {
+          secure: false,
+        },
+      },
+    )
+  }
 
   return { success: true }
 })

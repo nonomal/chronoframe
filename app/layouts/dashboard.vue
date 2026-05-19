@@ -4,6 +4,12 @@ import type { NavigationMenuItem } from '@nuxt/ui'
 const route = useRoute()
 const router = useRouter()
 const { loggedIn, user } = useUserSession()
+const settingsStore = useSettingsStore()
+
+const appTitle = computed(() => {
+  const value = settingsStore.getSetting('app:title')
+  return value ? String(value) : $t('title.dashboard')
+})
 
 const navItems = computed<NavigationMenuItem[][]>(() => [
   [
@@ -48,6 +54,11 @@ const navItems = computed<NavigationMenuItem[][]>(() => [
           to: '/dashboard/settings/storage',
         },
         {
+          label: $t('title.privacySettings'),
+          icon: 'tabler:shield-lock',
+          to: '/dashboard/settings/privacy',
+        },
+        {
           label: $t('title.mapAndLocation'),
           icon: 'tabler:map-pin',
           to: '/dashboard/settings/map',
@@ -56,7 +67,6 @@ const navItems = computed<NavigationMenuItem[][]>(() => [
           label: $t('title.systemSettings'),
           icon: 'tabler:cpu',
           to: '/dashboard/settings/system',
-          disabled: true,
         },
       ],
     },
@@ -77,7 +87,7 @@ const navItems = computed<NavigationMenuItem[][]>(() => [
     {
       label: 'Discord',
       icon: 'tabler:brand-discord',
-      to: 'https://discord.gg/chronoframe',
+      to: 'https://discord.gg/MM4ZK4Ed7s',
       target: '_blank',
     },
   ],
@@ -85,8 +95,7 @@ const navItems = computed<NavigationMenuItem[][]>(() => [
 
 useHead({
   title: $t('title.dashboard'),
-  titleTemplate: (title) =>
-    `${title ? title + ' | ' : ''}${getSetting('app:title')}`,
+  titleTemplate: (title) => `${title ? `${title} | ` : ''}${appTitle.value}`,
 })
 
 const handleLogin = () => {
@@ -149,7 +158,7 @@ const handleLogin = () => {
               to="/"
               class="text-lg font-medium line-clamp-1"
             >
-              {{ getSetting('app:title') || $t('title.dashboard') }}
+              {{ appTitle }}
             </NuxtLink>
           </div>
         </div>

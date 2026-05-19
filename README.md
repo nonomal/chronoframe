@@ -15,8 +15,8 @@
 </p>
 
 <p align="center">
-  <a href="https://discord.gg/https://discord.gg/U4vQuydP2m">
-    <img src="https://dcbadge.limes.pink/api/server/https://discord.gg/U4vQuydP2m" alt="Discord Server" />
+  <a href="https://discord.gg/MM4ZK4Ed7s">
+    <img src="https://dcbadge.limes.pink/api/server/https://discord.gg/MM4ZK4Ed7s" alt="Discord Server" />
   </a>
 </p>
 
@@ -313,17 +313,10 @@ This project is licensed under the MIT License.
     Direct import of existing photos is not yet supported. A directory scanning import feature is planned.
   </p>
 </details>
-<details>
-  <summary>How is this different from Afilmory?</summary>
-  <p>
-    Afilmory generates a manifest from photos during local/CI processing and serves them statically. ChronoFrame is a dynamic photo management app, offering online upload, management, and browsing—better for frequently updated galleries.
-    In other words, Afilmory = static; ChronoFrame = dynamic, online upload/manage.
-  </p>
-</details>
 
 ## 🙏 Acknowledgements
 
-This project was inspired by [Afilmory](https://github.com/Afilmory/afilmory), another excellent personal gallery project.
+This project was inspired by Afilmory, another excellent personal gallery project.
 
 Thanks to the following open-source projects and libraries:
 

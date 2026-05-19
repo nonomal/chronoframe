@@ -163,14 +163,14 @@
       "add": "リアクション",
       "change": "リアクション済み",
       "count": "リアクションなし | {count} 件のリアクション | {count} 件のリアクション",
-      "like": "いいね",
-      "love": "ハート",
-      "amazing": "憧れ",
+      "like": "ナイス",
+      "love": "好き",
+      "amazing": "すごい",
       "funny": "笑",
-      "wow": "驚",
-      "sad": "泣",
-      "fire": "炎",
-      "sparkle": "星"
+      "wow": "わお",
+      "sad": "感動",
+      "fire": "アツい",
+      "sparkle": "キラッ"
     },
     "photoload": {
       "loadError": "画像の読み込みに失敗しました",
@@ -362,6 +362,7 @@
     "siteAdministration": "サイト設定",
     "generalSettings": "一般設定",
     "appearanceSettings": "外観設定",
+    "privacySettings": "プライバシー設定",
     "mapAndLocation": "地図と場所",
     "location": "位置情報サービス"
   },
@@ -379,9 +380,16 @@
         "email": "メール",
         "password": "パスワード"
       }
+    },
+    "messages": {
+      "loginFailed": {
+        "title": "ログインに失敗しました",
+        "description": "予期しないエラーが発生しました。もう一度お試しください。"
+      }
     }
   },
   "common": {
+    "unsavedChanges": "未保存の変更があります。",
     "months": {
       "jan": "1月",
       "feb": "2月",
@@ -480,6 +488,7 @@
       "actions": {
         "reprocess": "再処理",
         "refreshLocation": "都市情報を再取得",
+        "eraseLocationInfo": "位置情報を抹消",
         "delete": "削除",
         "editMetadata": "メタデータを編集",
         "previewPhoto": "プレビュー写真"
@@ -487,12 +496,19 @@
       "selection": {
         "selected": "{count} / {total}行選択済み",
         "batchReprocess": "一括再処理",
+        "batchEraseLocation": "位置情報を抹消",
         "batchDownload": "一括ダウンロード",
         "batchDelete": "一括削除"
       },
       "slideover": {
         "title": "写真をアップロード",
         "description": "ドラッグアンドドロップするか、ファイルを選択します。写真は自動的に処理され、ライブラリに追加されます。",
+        "options": {
+          "eraseLocation": {
+            "label": "アップロード時に位置情報を抹消",
+            "description": "このアップロードではシステム既定値を上書きでき、いつでもオン/オフを切り替えできます。"
+          }
+        },
         "buttons": {
           "clear": "選択をクリア",
           "upload": "{count}個のファイルをアップロード"
@@ -532,6 +548,8 @@
         "uploadSuccess": "写真が正常にアップロードされました。処理中です...",
         "uploadMultipleSuccess": "{count}枚の写真が正常にアップロードされました。処理中です...",
         "reprocessSuccess": "再処理タスクが追加されました",
+        "batchReprocessSuccess": "{count}枚の写真の再処理タスクをキューに正常に送信しました",
+        "batchReprocessing": "再処理タスクを送信しています...",
         "reprocessTaskId": "タスク ID：{taskId}",
         "deleteSuccess": "写真が正常に削除されました",
         "batchDeleteSuccess": "{count}枚の写真を正常に削除しました",
@@ -563,12 +581,19 @@
         "noChangesProvided": "適用できる変更がありません",
         "queueUnavailable": "タスクキューを利用できません",
         "reverseGeocodeQueued": "都市情報の再取得タスクをキューに追加しました",
-        "reverseGeocodeFailed": "都市情報の再取得タスクの追加に失敗しました"
+        "reverseGeocodeFailed": "都市情報の再取得タスクの追加に失敗しました",
+        "eraseLocationQueued": "位置情報の抹消タスクをキューに追加しました",
+        "eraseLocationFailed": "位置情報の抹消タスクの追加に失敗しました",
+        "batchEraseLocationQueued": "{count} 件の位置情報抹消タスクをキューに追加しました",
+        "batchEraseLocationFailed": "位置情報抹消タスクの一括追加に失敗しました"
       },
       "errors": {
         "noSelection": "アップロードする写真を選択してください",
         "fileValidationFailed": "ファイル検証に失敗しました",
         "allFilesValidationFailed": "すべてのファイルが検証に失敗しました",
+        "allFilesTooLarge": "選択した {count} 件のファイルはすべて最大サイズ制限（{maxSize}MB）を超えています。",
+        "filesTooLargeSkipped": "サイズ超過のファイルを {count} 件スキップしました（上限 {maxSize}MB）。残りのファイルはアップロードを続行します。",
+        "filesUnsupportedSkipped": "未対応形式のファイルを {count} 件スキップしました。残りのファイルはアップロードを続行します。",
         "unsupportedFormat": "サポートされていないファイル形式：{type}。JPEG、PNG、またはHEIC写真、またはMOV形式のライブフォトビデオを選択してください。",
         "fileTooLarge": "ファイルが大きすぎます：{size}MB。最大サポート：{maxSize}MB。",
         "uploadFailed": "アップロードに失敗しました",
@@ -604,7 +629,7 @@
           "tagsHint": "タグを入力し、Enter キーで追加してください。",
           "location": "撮影場所",
           "locationHint": "地図をクリックして撮影場所を選択してください。",
-          "clearLocation": "位置情報をクリア",
+          "clearLocation": "位置情報を抹消",
           "coordinates": "座標",
           "noLocation": "位置情報が未設定です",
           "rating": "評価",
@@ -614,6 +639,40 @@
         "actions": {
           "cancel": "キャンセル",
           "save": "変更を保存"
+        }
+      },
+      "uploadQueueItem": {
+        "status": {
+          "waiting": "アップロード待機",
+          "preparing": "準備中",
+          "uploading": "アップロード中 {0}%",
+          "pendingProcessing": "処理待ち",
+          "completed": "完了",
+          "error": "エラー",
+          "skipped": "スキップ",
+          "blocked": "ブロック",
+          "unknown": "不明"
+        },
+        "stage": {
+          "preprocessing": "前処理中",
+          "metadata": "メタデータ抽出",
+          "thumbnail": "サムネイル生成",
+          "exif": "EXIF 処理",
+          "reverseGeocoding": "逆ジオコーディング",
+          "livePhoto": "Live Photo 検出"
+        },
+        "actions": {
+          "abort": "中止",
+          "clear": "クリア"
+        },
+        "progress": {
+          "upload": "アップロード進捗",
+          "remainingTime": "残り時間: {0}",
+          "processing": "処理状態"
+        },
+        "alerts": {
+          "longProcessing": "大きなファイルは処理に時間がかかることがあります。",
+          "success": "ファイルのアップロードと処理が完了しました"
         }
       }
     },
@@ -780,7 +839,8 @@
       "types": {
         "photo": "写真処理",
         "live-photo-video": "LivePhoto動画",
-        "photo-reverse-geocoding": "写真の逆ジオコーディング"
+        "photo-reverse-geocoding": "写真の逆ジオコーディング",
+        "photo-erase-location": "写真位置情報の抹消"
       },
       "stages": {
         "preprocessing": "前処理",
@@ -788,7 +848,8 @@
         "thumbnail": "サムネイル",
         "exif": "EXIF処理",
         "reverse-geocoding": "地理解析",
-        "live-photo": "LivePhoto処理"
+        "live-photo": "LivePhoto処理",
+        "location-erase": "位置情報の抹消"
       },
       "buttons": {
         "retry": "再試行",
@@ -838,6 +899,60 @@
           "dark": "ダーク",
           "system": "システム"
         }
+      },
+      "upload": {
+        "maxFileSize": {
+          "label": "アップロードファイルの最大サイズ",
+          "description": "アップロード可能な単一ファイルの最大サイズ（MB）",
+          "help": "設定後すぐに反映され、全ユーザーのファイルアップロードに適用されます"
+        }
+      }
+    },
+    "system": {
+      "sections": {
+        "thirdPartyLogin": "外部ログイン",
+        "fileProcessing": "ファイル処理",
+        "debugSettings": "デバッグ設定"
+      },
+      "upload": {
+        "duplicateCheck": {
+          "enabled": {
+            "label": "アップロード時に重複ファイルを検出",
+            "description": "ファイル名で重複写真を検出し、選択した方針を適用します",
+            "help": "無効にすると重複の事前チェックを行わず、同名ファイルはそのままアップロード処理に進みます"
+          },
+          "mode": {
+            "label": "重複ファイル処理モード",
+            "description": "重複ファイルを検出した場合の処理方法",
+            "help": "重複検出が有効な場合のみ適用されます",
+            "options": {
+              "skip": "スキップ",
+              "warn": "警告して上書き",
+              "block": "アップロードを拒否"
+            }
+          }
+        }
+      },
+      "webglImageViewerDebug": {
+        "label": "WebGL Image Viewer デバッグモード",
+        "description": "WebGL 画像ビューアのデバッグ情報を本番環境でも表示するかを制御します",
+        "help": "有効にすると、ログイン中のユーザーは環境を問わず WebGL デバッグパネルを表示できます。無効時は開発環境のみ表示されます"
+      },
+      "auth": {
+        "github": {
+          "enabled": {
+            "label": "GitHub ログインを有効化",
+            "description": "GitHub OAuth ログインを有効にするかどうか"
+          },
+          "clientId": {
+            "label": "GitHub Client ID",
+            "description": "GitHub OAuth アプリの Client ID"
+          },
+          "clientSecret": {
+            "label": "GitHub Client Secret",
+            "description": "GitHub OAuth アプリの Client Secret"
+          }
+        }
       }
     },
     "map": {
@@ -869,6 +984,11 @@
       }
     },
     "location": {
+      "language": {
+        "label": "位置情報の言語",
+        "description": "場所名を逆ジオコーディングする際の言語",
+        "help": "写真の位置情報を決定する逆ジオコーディング用の言語を選択します。デフォルトは英語です。"
+      },
       "mapbox": {
         "token": {
           "label": "Mapbox トークン",
@@ -881,6 +1001,15 @@
           "label": "Nominatim ベース URL",
           "description": "Nominatim リバースジオコーディング API のベース URL",
           "help": "空のままにすると、デフォルトで公開 Nominatim サービスを使用します"
+        }
+      }
+    },
+    "privacy": {
+      "upload": {
+        "autoEraseLocation": {
+          "label": "アップロード時に位置情報を自動で抹消",
+          "description": "アップロード処理中に EXIF の GPS 情報と地理位置フィールドを自動的に削除します",
+          "help": "有効化すると、位置情報抹消はキューで非同期に実行されます"
         }
       }
     },
@@ -1005,10 +1134,18 @@
   },
   "wizard": {
     "admin": {
-      "username": { "label": "ユーザー名" },
-      "email": { "label": "メールアドレス" },
-      "password": { "label": "パスワード" },
-      "confirmPassword": { "label": "パスワード（確認）" }
+      "username": {
+        "label": "ユーザー名"
+      },
+      "email": {
+        "label": "メールアドレス"
+      },
+      "password": {
+        "label": "パスワード"
+      },
+      "confirmPassword": {
+        "label": "パスワード（確認）"
+      }
     },
     "map": {
       "provider": {
@@ -1021,6 +1158,122 @@
           "description": "Mapbox GL JS のオープンソースフォーク。"
         }
       }
+    }
+  },
+  "onboarding": {
+    "layout": {
+      "steps": {
+        "welcome": "ようこそ",
+        "admin": "管理者アカウント",
+        "site": "サイト情報",
+        "storage": "ストレージ設定",
+        "map": "地図サービス",
+        "complete": "完了"
+      },
+      "current": "進行中",
+      "stepCounter": "ステップ {0} / {1}"
+    },
+    "actions": {
+      "next": "次へ",
+      "completeSetup": "設定を完了"
+    },
+    "welcome": {
+      "title": "ChronoFrame へようこそ",
+      "description": "ウィザードに従って、数分でギャラリーを設定できます。",
+      "intro": "ChronoFrame は多機能な個人ギャラリーアプリです。写真をアップロードする前に、いくつかの項目を設定しましょう。",
+      "cards": {
+        "admin": {
+          "title": "管理者アカウント",
+          "description": "管理コンソールへのログインに使用します"
+        },
+        "site": {
+          "title": "サイト情報",
+          "description": "ギャラリーをパーソナライズします"
+        },
+        "storage": {
+          "title": "ストレージ",
+          "description": "写真をローカルまたはクラウドに保存します"
+        },
+        "map": {
+          "title": "地図サービス",
+          "description": "位置の可視化と撮影地点の表示"
+        }
+      },
+      "privacyNotice": "ChronoFrame はあなたのデータを収集しません。",
+      "start": "はじめる"
+    },
+    "admin": {
+      "title": "管理者アカウント",
+      "description": "管理者アカウントを作成します"
+    },
+    "site": {
+      "title": "サイト情報",
+      "description": "サイトの基本情報を設定します"
+    },
+    "storage": {
+      "title": "ストレージ設定",
+      "description": "写真の保存先を選択します"
+    },
+    "map": {
+      "title": "地図サービス",
+      "description": "グローブ表示と写真詳細のミニマップ向けに地図サービスを設定します"
+    },
+    "complete": {
+      "title": "まもなく完了です！",
+      "description": "ChronoFrame ギャラリーの準備ができました。",
+      "body": "基本設定はすべて完了しました。管理者アカウントでログインして写真のアップロードを開始できます。",
+      "goToDashboard": "ダッシュボードへ",
+      "setupFailedTitle": "セットアップ失敗",
+      "setupFailedDescription": "セットアップの完了に失敗しました"
+    }
+  },
+  "globe": {
+    "analysis": {
+      "annotation": "撮影パラメータ注釈",
+      "annotationDescription": "撮影パラメータ別に地理分布を表示",
+      "mode": {
+        "none": {
+          "label": "デフォルト",
+          "description": "注釈を無効化"
+        },
+        "focalLength": {
+          "label": "焦点距離",
+          "description": "広角 / 標準 / 望遠"
+        },
+        "shutterSpeed": {
+          "label": "シャッター速度",
+          "description": "高速 / 中速 / 低速"
+        },
+        "altitude": {
+          "label": "標高",
+          "description": "低 / 中 / 高標高"
+        }
+      },
+      "legend": {
+        "focalLength": {
+          "title": "焦点距離分布",
+          "wide": "広角",
+          "standard": "標準",
+          "telephoto": "望遠"
+        },
+        "shutterSpeed": {
+          "title": "シャッター速度分布",
+          "fast": "高速",
+          "medium": "中速",
+          "slow": "低速"
+        },
+        "altitude": {
+          "title": "標高分布",
+          "low": "低標高",
+          "medium": "中標高",
+          "high": "高標高"
+        }
+      }
+    },
+    "timeline": {
+      "toggle": "タイムラインの有効/無効",
+      "playPause": "タイムライン再生/一時停止",
+      "title": "タイムライン"
     }
   }
 }

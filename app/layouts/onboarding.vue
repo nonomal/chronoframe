@@ -3,17 +3,17 @@ import { motion } from 'motion-v'
 
 const route = useRoute()
 
-const steps = [
-  { label: '欢迎', route: 'onboarding' },
-  { label: '管理员账户', route: 'onboarding-admin' },
-  { label: '站点信息', route: 'onboarding-site' },
-  { label: '存储配置', route: 'onboarding-storage' },
-  { label: '地图服务', route: 'onboarding-map' },
-  { label: '完成', route: 'onboarding-complete' },
-]
+const steps = computed(() => [
+  { label: $t('onboarding.layout.steps.welcome'), route: 'onboarding' },
+  { label: $t('onboarding.layout.steps.admin'), route: 'onboarding-admin' },
+  { label: $t('onboarding.layout.steps.site'), route: 'onboarding-site' },
+  { label: $t('onboarding.layout.steps.storage'), route: 'onboarding-storage' },
+  { label: $t('onboarding.layout.steps.map'), route: 'onboarding-map' },
+  { label: $t('onboarding.layout.steps.complete'), route: 'onboarding-complete' },
+])
 
 const currentStepIndex = computed(() => {
-  return steps.findIndex((s) => s.route === route.name)
+  return steps.value.findIndex((s) => s.route === route.name)
 })
 </script>
 
@@ -76,7 +76,7 @@ const currentStepIndex = computed(() => {
 
     <!-- Main Container -->
     <motion.div
-      class="relative z-10 w-full max-w-6xl h-[80vh] max-h-[900px] mx-4 lg:mx-8 flex rounded-3xl overflow-hidden border border-white/10 bg-neutral-900/40 backdrop-blur-2xl shadow-2xl shadow-black/50"
+      class="relative z-10 w-full max-w-6xl h-[80vh] max-h-225 mx-4 lg:mx-8 flex rounded-3xl overflow-hidden border border-white/10 bg-neutral-900/40 backdrop-blur-2xl shadow-2xl shadow-black/50"
       :initial="{ opacity: 0, scale: 0.95, y: 20 }"
       :animate="{ opacity: 1, scale: 1, y: 0 }"
       :transition="{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }"
@@ -104,7 +104,7 @@ const currentStepIndex = computed(() => {
           <div class="space-y-1 relative">
             <!-- Connecting Line -->
             <div
-              class="absolute left-[27px] top-4 bottom-4 w-0.5 bg-white/5 rounded-full"
+              class="absolute left-6.75 top-4 bottom-4 w-0.5 bg-white/5 rounded-full"
             >
               <!-- Active Line Wrapper -->
               <div
@@ -185,7 +185,7 @@ const currentStepIndex = computed(() => {
                   v-if="index === currentStepIndex"
                   class="text-xs text-primary-400/80 font-medium"
                 >
-                  当前进行
+                  {{ $t('onboarding.layout.current') }}
                 </span>
               </div>
             </div>
@@ -215,7 +215,7 @@ const currentStepIndex = computed(() => {
             <span class="font-bold">ChronoFrame</span>
           </div>
           <div class="text-sm text-neutral-400">
-            Step {{ currentStepIndex + 1 }}/{{ steps.length }}
+            {{ $t('onboarding.layout.stepCounter', [currentStepIndex + 1, steps.length]) }}
           </div>
         </div>
 

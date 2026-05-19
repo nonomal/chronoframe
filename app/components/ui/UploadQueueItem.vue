@@ -18,6 +18,7 @@ interface UploadFile {
   stage?: string | null
   progress?: number
   error?: string
+  warning?: string
   taskId?: number
   uploadProgress?: {
     loaded: number
@@ -77,37 +78,39 @@ const statusColor = computed(() => {
 const statusText = computed(() => {
   switch (props.uploadingFile.status) {
     case 'waiting':
-      return '等待上传'
+      return $t('dashboard.photos.uploadQueueItem.status.waiting')
     case 'preparing':
-      return '准备中'
+      return $t('dashboard.photos.uploadQueueItem.status.preparing')
     case 'uploading':
-      return `上传中 ${props.uploadingFile.progress || 0}%`
+      return $t('dashboard.photos.uploadQueueItem.status.uploading', [
+        props.uploadingFile.progress || 0,
+      ])
     case 'processing':
       return props.uploadingFile.stage
         ? getStageText(props.uploadingFile.stage)
-        : '等待处理'
+        : $t('dashboard.photos.uploadQueueItem.status.pendingProcessing')
     case 'completed':
-      return '完成'
+      return $t('dashboard.photos.uploadQueueItem.status.completed')
     case 'error':
-      return '错误'
+      return $t('dashboard.photos.uploadQueueItem.status.error')
     case 'skipped':
-      return '已跳过'
+      return $t('dashboard.photos.uploadQueueItem.status.skipped')
     case 'blocked':
-      return '被阻止'
+      return $t('dashboard.photos.uploadQueueItem.status.blocked')
     default:
-      return '未知'
+      return $t('dashboard.photos.uploadQueueItem.status.unknown')
   }
 })
 
 // 获取处理阶段文本
 const getStageText = (stage: string) => {
   const stageMap: Record<string, string> = {
-    preprocessing: '预处理中',
-    metadata: '提取元数据',
-    thumbnail: '生成缩略图',
-    exif: '处理 EXIF',
-    'reverse-geocoding': '地理解析',
-    'live-photo': '检测 LivePhoto',
+    preprocessing: $t('dashboard.photos.uploadQueueItem.stage.preprocessing'),
+    metadata: $t('dashboard.photos.uploadQueueItem.stage.metadata'),
+    thumbnail: $t('dashboard.photos.uploadQueueItem.stage.thumbnail'),
+    exif: $t('dashboard.photos.uploadQueueItem.stage.exif'),
+    'reverse-geocoding': $t('dashboard.photos.uploadQueueItem.stage.reverseGeocoding'),
+    'live-photo': $t('dashboard.photos.uploadQueueItem.stage.livePhoto'),
   }
   return stageMap[stage] || stage
 }
@@ -204,7 +207,7 @@ const generateParticleStyle = (index: number) => {
       <div class="flex items-center gap-3 flex-1 min-w-0">
         <!-- 文件图标 -->
         <motion.div
-          class="relative flex-shrink-0"
+          class="relative shrink-0"
           :transition="{
             duration: uploadingFile.status === 'processing' ? 2 : 0.3,
             repeat: uploadingFile.status === 'processing' ? Infinity : 0,
@@ -355,7 +358,7 @@ const generateParticleStyle = (index: number) => {
             icon="tabler:x"
             @click="uploadingFile.abortUpload?.()"
           >
-            中止
+            {{ $t('dashboard.photos.uploadQueueItem.actions.abort') }}
           </UButton>
         </motion.div>
 
@@ -363,7 +366,9 @@ const generateParticleStyle = (index: number) => {
         <motion.div
           v-if="
             uploadingFile.status === 'completed' ||
-            uploadingFile.status === 'error'
+            uploadingFile.status === 'error' ||
+            uploadingFile.status === 'skipped' ||
+            uploadingFile.status === 'blocked'
           "
           :initial="{ opacity: 0, scale: 0.8 }"
           :animate="{ opacity: 1, scale: 1 }"
@@ -376,7 +381,7 @@ const generateParticleStyle = (index: number) => {
             icon="tabler:x"
             @click="emit('removeFile', fileId)"
           >
-            清除
+            {{ $t('dashboard.photos.uploadQueueItem.actions.clear') }}
           </UButton>
         </motion.div>
       </div>
@@ -402,7 +407,7 @@ const generateParticleStyle = (index: number) => {
         >
           <div class="flex justify-between items-center">
             <span class="text-xs text-neutral-600 dark:text-neutral-400">
-              上传进度
+              {{ $t('dashboard.photos.uploadQueueItem.progress.upload') }}
             </span>
             <span
               class="text-xs font-mono text-neutral-600 dark:text-neutral-400"
@@ -427,7 +432,7 @@ const generateParticleStyle = (index: number) => {
             v-if="uploadingFile.uploadProgress?.timeRemainingText"
             class="text-xs text-neutral-500 dark:text-neutral-400"
           >
-            剩余时间: {{ uploadingFile.uploadProgress.timeRemainingText }}
+            {{ $t('dashboard.photos.uploadQueueItem.progress.remainingTime', [uploadingFile.uploadProgress.timeRemainingText]) }}
           </div>
         </div>
 
@@ -438,7 +443,7 @@ const generateParticleStyle = (index: number) => {
         >
           <div class="flex justify-between items-center">
             <span class="text-xs text-neutral-600 dark:text-neutral-400">
-              处理状态
+              {{ $t('dashboard.photos.uploadQueueItem.progress.processing') }}
             </span>
             <motion.span
               class="text-xs text-info-600 dark:text-info-400"
@@ -480,6 +485,58 @@ const generateParticleStyle = (index: number) => {
       </motion.div>
     </AnimatePresence>
 
+    <!-- 跳过/阻止提示 -->
+    <AnimatePresence>
+      <motion.div
+        v-if="
+          (uploadingFile.status === 'skipped' ||
+            uploadingFile.status === 'blocked') &&
+            uploadingFile.error
+        "
+        :initial="{ opacity: 0, height: 0, y: -10 }"
+        :animate="{ opacity: 1, height: 'auto', y: 0 }"
+        :exit="{ opacity: 0, height: 0, y: -10 }"
+        :transition="{ duration: 0.3 }"
+        class="mt-3"
+      >
+        <UAlert
+          :description="uploadingFile.error"
+          :color="uploadingFile.status === 'blocked' ? 'error' : 'warning'"
+          variant="soft"
+          :icon="
+            uploadingFile.status === 'blocked'
+              ? 'tabler:ban'
+              : 'tabler:player-track-next'
+          "
+          :ui="{
+            root: 'px-2.5 py-2',
+          }"
+        />
+      </motion.div>
+    </AnimatePresence>
+
+    <!-- 警告信息（如重复文件警告并覆盖） -->
+    <AnimatePresence>
+      <motion.div
+        v-if="uploadingFile.warning"
+        :initial="{ opacity: 0, height: 0, y: -10 }"
+        :animate="{ opacity: 1, height: 'auto', y: 0 }"
+        :exit="{ opacity: 0, height: 0, y: -10 }"
+        :transition="{ duration: 0.3 }"
+        class="mt-3"
+      >
+        <UAlert
+          :description="uploadingFile.warning"
+          color="warning"
+          variant="soft"
+          icon="tabler:alert-triangle"
+          :ui="{
+            root: 'px-2.5 py-2',
+          }"
+        />
+      </motion.div>
+    </AnimatePresence>
+
     <!-- 处理时间警告 -->
     <AnimatePresence>
       <motion.div
@@ -491,7 +548,7 @@ const generateParticleStyle = (index: number) => {
         class="mt-3"
       >
         <UAlert
-          description="大文件处理时间较长，为正常现象"
+          :description="$t('dashboard.photos.uploadQueueItem.alerts.longProcessing')"
           color="info"
           variant="soft"
           icon="tabler:info-circle"
@@ -520,7 +577,7 @@ const generateParticleStyle = (index: number) => {
         class="mt-3"
       >
         <UAlert
-          description="文件已成功上传并处理"
+          :description="$t('dashboard.photos.uploadQueueItem.alerts.success')"
           color="success"
           variant="soft"
           icon="tabler:circle-check"
